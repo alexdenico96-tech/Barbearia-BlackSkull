@@ -1,0 +1,9 @@
+# Dependências
+node_modules/
+
+# Banco de dados local (SQLite)
+backend/*.db
+backend/*.db-journal
+
+# Ambientes e Segredos
+.env
