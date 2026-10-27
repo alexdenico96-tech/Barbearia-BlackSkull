@@ -122,6 +122,28 @@ app.get('/api/appointments', (req, res) => {
   }
 });
 
+/* ==========================================
+   ROTA PARA EXCLUIR AGENDAMENTO (ADMIN)
+   ========================================== */
+app.delete('/api/appointments/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Prepara a instrução para deletar o agendamento pelo ID
+    const deleteStmt = db.prepare('DELETE FROM appointments WHERE id = ?');
+    const result = deleteStmt.run(id);
+
+    // Verifica se encontrou e removeu o registro
+    if (result.changes === 0) {
+      return res.status(404).json({ error: "Agendamento não encontrado." });
+    }
+
+    res.json({ message: "Agendamento excluído com sucesso!", id });
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao excluir o agendamento no servidor." });
+  }
+});
+
 
 // Inicializa o servidor
 app.listen(PORT, () => {
