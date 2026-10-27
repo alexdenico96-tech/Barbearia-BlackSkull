@@ -1,0 +1,36 @@
+### Rota de Teste de Saúde do Servidor
+GET http://localhost:3001/api/health
+
+###
+### Listar todos os Serviços Cadastrados
+GET http://localhost:3001/api/services
+
+###
+### Listar todos os Agendamentos
+GET http://localhost:3001/api/appointments
+
+###
+### 1º Teste: Criar um Agendamento com Sucesso
+POST http://localhost:3001/api/appointments
+Content-Type: application/json
+
+{
+  "client_name": "Gabriel BlackSkull",
+  "client_phone": "11999999999",
+  "service_id": 1,
+  "date": "2026-10-30",
+  "time": "14:00"
+}
+
+###
+### 2º Teste: Tentar agendar no MESMO HORÁRIO (Deve dar ERRO de conflito)
+POST http://localhost:3001/api/appointments
+Content-Type: application/json
+
+{
+  "client_name": "Outro Cliente",
+  "client_phone": "11888888888",
+  "service_id": 2,
+  "date": "2026-10-30",
+  "time": "14:00"
+}
