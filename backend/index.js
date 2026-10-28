@@ -1,9 +1,11 @@
 const express = require('express');
 const cors = require('cors');
-const db = require('./database'); // Importa a nossa conexão do SQLite
+const jwt = require('jsonwebtoken');
+const db = require('./database');
 
 const app = express();
 const PORT = 3001;
+const SECRET_KEY = 'sua_chave_secreta_super_segura_jwt'; // Em produção, use variáveis de ambiente (.env)
 
 // Middlewares
 app.use(cors());
@@ -15,115 +17,127 @@ app.get('/api/health', (req, res) => {
 });
 
 /* ==========================================
+   ROTA DE AUTENTICAÇÃO ADMIN (JWT)
+   ========================================== */
+app.post('/api/admin/login', (req, res) => {
+  const { password } = req.body;
+  
+  // Senha simples para exemplo (em produção, usar hash no banco)
+  if (password === 'admin123') {
+    // Gera um token válido por 2 horas
+    const token = jwt.sign({ role: 'admin' }, SECRET_KEY, { expiresIn: '2h' });
+    return res.json({ token });
+  }
+  
+  return res.status(401).json({ error: "Senha de administrador incorreta." });
+});
+
+// Middleware para verificar o Token JWT
+const verifyJWT = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Formato: "Bearer TOKEN"
+
+  if (!token) {
+    return res.status(401).json({ error: "Acesso negado. Token não fornecido." });
+  }
+
+  jwt.verify(token, SECRET_KEY, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: "Token inválido ou expirado." });
+    }
+    req.user = user;
+    next();
+  });
+};
+
+/* ==========================================
    ROTAS DE SERVIÇOS
    ========================================== */
-
-// 1. Listar todos os serviços
 app.get('/api/services', (req, res) => {
   try {
-    // Busca todos os registros da tabela 'services'
     const services = db.prepare('SELECT * FROM services').all();
     res.json(services);
   } catch (error) {
-    res.status(500).json({ error: "Erro ao buscar serviços no banco de dados." });
+    res.status(500).json({ error: "Erro ao buscar serviços." });
   }
 });
 
-// 2. Cadastrar um novo serviço (Painel do Administrador)
-app.post('/api/services', (req, res) => {
+// Rota protegida com JWT
+app.post('/api/services', verifyJWT, (req, res) => {
   try {
     const { name, price, duration } = req.body;
-
-    // Validação simples de campos obrigatórios
     if (!name || !price || !duration) {
-      return res.status(400).json({ error: "Todos os campos (name, price, duration) são obrigatórios." });
+      return res.status(400).json({ error: "Todos os campos são obrigatórios." });
     }
-
-    // Prepara a inserção no SQLite
     const insert = db.prepare('INSERT INTO services (name, price, duration) VALUES (?, ?, ?)');
     const result = insert.run(name, price, duration);
-
-    // Retorna o serviço criado junto com o ID gerado pelo banco
-    res.status(201).json({
-      id: result.lastInsertRowid,
-      name,
-      price,
-      duration
-    });
+    res.status(201).json({ id: result.lastInsertRowid, name, price, duration });
   } catch (error) {
-    res.status(500).json({ error: "Erro ao salvar o novo serviço." });
+    res.status(500).json({ error: "Erro ao salvar o serviço." });
   }
 });
 
 /* ==========================================
    ROTAS DE AGENDAMENTOS
    ========================================== */
-
-// 1. Criar um novo agendamento (Com validação de conflito de horário)
 app.post('/api/appointments', (req, res) => {
   try {
     const { client_name, client_phone, service_id, date, time } = req.body;
-
-    // Validação de campos obrigatórios
     if (!client_name || !client_phone || !service_id || !date || !time) {
       return res.status(400).json({ error: "Todos os campos são obrigatórios." });
     }
 
-    // REGRA DE NEGÓCIO PRINCIPAL: Verifica se já existe um agendamento ativo para a mesma data e hora
     const conflict = db.prepare(`
       SELECT * FROM appointments 
       WHERE date = ? AND time = ? AND status != 'cancelled'
     `).get(date, time);
 
-    // Se encontrou algum registro, bloqueia o agendamento imediatamente
     if (conflict) {
-      return res.status(400).json({ 
-        error: "Desculpe, este horário já foi preenchido por outro cliente. Por favor, escolha outro momento." 
-      });
+      return res.status(400).json({ error: "Este horário já foi preenchido. Escolha outro." });
     }
 
-    // Se o horário estiver livre, faz a inserção no banco de dados
     const insert = db.prepare(`
       INSERT INTO appointments (client_name, client_phone, service_id, date, time) 
       VALUES (?, ?, ?, ?, ?)
     `);
     const result = insert.run(client_name, client_phone, service_id, date, time);
 
-    // Retorna o agendamento criado com sucesso
-    res.status(201).json({
-      id: result.lastInsertRowid,
-      client_name,
-      client_phone,
-      service_id,
-      date,
-      time,
-      status: 'pending'
-    });
-
+    res.status(201).json({ id: result.lastInsertRowid, client_name, client_phone, service_id, date, time });
   } catch (error) {
-    res.status(500).json({ error: "Erro ao processar o agendamento no servidor." });
+    res.status(500).json({ error: "Erro ao processar o agendamento." });
   }
 });
 
-// 2. Listar todos os agendamentos (Painel do Administrador)
 app.get('/api/appointments', (req, res) => {
   try {
-    // Fazemos um JOIN com a tabela de serviços para trazer o nome e o preço do serviço no mesmo pacote
     const appointments = db.prepare(`
       SELECT appointments.*, services.name as service_name, services.price as service_price
       FROM appointments
       JOIN services ON appointments.service_id = services.id
       ORDER BY date ASC, time ASC
     `).all();
-
     res.json(appointments);
   } catch (error) {
-    res.status(500).json({ error: "Erro ao buscar a lista de agendamentos." });
+    res.status(500).json({ error: "Erro ao buscar agendamentos." });
   }
 });
 
+// Rota protegida com JWT
+app.delete('/api/appointments/:id', verifyJWT, (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleteStmt = db.prepare('DELETE FROM appointments WHERE id = ?');
+    const result = deleteStmt.run(id);
 
-// Inicializa o servidor
+    if (result.changes === 0) {
+      return res.status(404).json({ error: "Agendamento não encontrado." });
+    }
+    res.json({ message: "Agendamento excluído com sucesso!", id });
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao excluir o agendamento." });
+  }
+});
+
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando com sucesso em http://localhost:${PORT}`);
+  console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
 });
