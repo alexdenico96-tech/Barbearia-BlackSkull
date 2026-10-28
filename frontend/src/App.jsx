@@ -4,14 +4,14 @@ import './App.css';
 const API_URL = 'http://localhost:3001/api';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState('client'); // 'client' o 'admin'
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [theme, setTheme] = useState('light');
+  const [currentView, setCurrentView] = useState('client'); 
+  const [adminToken, setAdminToken] = useState(localStorage.getItem('adminToken') || '');
   const [adminPassword, setAdminPassword] = useState('');
   
   const [services, setServices] = useState([]);
   const [appointments, setAppointments] = useState([]);
 
-  // Formulario del Cliente (Agendamiento)
   const [formData, setFormData] = useState({
     client_name: '',
     client_phone: '',
@@ -20,7 +20,6 @@ export default function App() {
     time: ''
   });
 
-  // Formulario para Registrar Nuevo Servicio (Admin)
   const [newServiceData, setNewServiceData] = useState({
     name: '',
     price: '',
@@ -31,9 +30,17 @@ export default function App() {
   const [serviceMessage, setServiceMessage] = useState({ text: '', type: '' });
 
   useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
     fetchServices();
     fetchAppointments();
   }, []);
+
+  const toggleTheme = () => {
+    setTheme(theme === 'light' ? 'dark' : 'light');
+  };
 
   const fetchServices = async () => {
     try {
@@ -61,7 +68,6 @@ export default function App() {
     setNewServiceData({ ...newServiceData, [e.target.name]: e.target.value });
   };
 
-  // Enviar nuevo agendamiento (Cliente)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage({ text: '', type: '' });
@@ -76,7 +82,7 @@ export default function App() {
       const result = await response.json();
 
       if (response.ok) {
-        setMessage({ text: '¡Agendamiento realizado con éxito!', type: 'success' });
+        setMessage({ text: '¡Agendamento realizado com sucesso!', type: 'success' });
         setFormData({ client_name: '', client_phone: '', service_id: '', date: '', time: '' });
         fetchAppointments();
       } else {
@@ -87,7 +93,32 @@ export default function App() {
     }
   };
 
-  // Registrar un nuevo servicio (Admin)
+  // Login de Admin com JWT
+  const handleAdminLogin = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`${API_URL}/admin/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: adminPassword })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setAdminToken(result.token);
+        localStorage.setItem('adminToken', result.token);
+        setMessage({ text: '', type: '' });
+        setAdminPassword('');
+      } else {
+        setMessage({ text: result.error || 'Erro na autenticação.', type: 'error' });
+      }
+    } catch (error) {
+      setMessage({ text: 'Erro de conexão com o servidor.', type: 'error' });
+    }
+  };
+
+  // Cadastrar Serviço (Protegido por JWT)
   const handleServiceSubmit = async (e) => {
     e.preventDefault();
     setServiceMessage({ text: '', type: '' });
@@ -95,16 +126,19 @@ export default function App() {
     try {
       const response = await fetch(`${API_URL}/services`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
         body: JSON.stringify(newServiceData)
       });
 
       const result = await response.json();
 
       if (response.ok) {
-        setServiceMessage({ text: '¡Servicio registrado con éxito!', type: 'success' });
+        setServiceMessage({ text: '¡Serviço cadastrado com sucesso!', type: 'success' });
         setNewServiceData({ name: '', price: '', duration: '' });
-        fetchServices(); // Actualiza la lista de servicios en el cliente y admin
+        fetchServices();
       } else {
         setServiceMessage({ text: result.error || 'Erro ao cadastrar serviço.', type: 'error' });
       }
@@ -113,13 +147,16 @@ export default function App() {
     }
   };
 
-  // Eliminar un agendamiento (Admin)
+  // Excluir Agendamento (Protegido por JWT)
   const handleDelete = async (id) => {
     if (!window.confirm('¿Estás seguro de que deseas eliminar este agendamiento?')) return;
 
     try {
       const response = await fetch(`${API_URL}/appointments/${id}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        }
       });
 
       if (response.ok) {
@@ -129,30 +166,27 @@ export default function App() {
         alert(result.error || 'Erro ao excluir agendamento.');
       }
     } catch (error) {
-      console.error('Error de conexión:', error);
+      console.error('Erro de conexão:', error);
       alert('Erro de conexão com o servidor.');
     }
   };
 
-  const handleAdminLogin = (e) => {
-    e.preventDefault();
-    if (adminPassword === 'admin123') {
-      setIsAdminAuthenticated(true);
-      setMessage({ text: '', type: '' });
-    } else {
-      setMessage({ text: 'Senha de administrador incorreta.', type: 'error' });
-    }
+  const handleAdminLogout = () => {
+    setAdminToken('');
+    localStorage.removeItem('adminToken');
   };
 
   return (
     <div className="container">
       <div className="nav-bar">
         <h1>Barbearia BlackSkull</h1>
-        <div>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button className="btn btn-secondary" onClick={toggleTheme}>
+            {theme === 'light' ? '🌙 Modo Escuro' : '☀️ Modo Claro'}
+          </button>
           <button 
             className={`btn ${currentView === 'client' ? '' : 'btn-secondary'}`}
             onClick={() => setCurrentView('client')}
-            style={{ marginRight: '10px' }}
           >
             Área do Cliente
           </button>
@@ -168,7 +202,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* TELA 1: ÁREA DO CLIENTE */}
+      {/* ÁREA DO CLIENTE */}
       {currentView === 'client' && (
         <div className="card">
           <h2>Faça o seu Agendamento</h2>
@@ -211,13 +245,13 @@ export default function App() {
         </div>
       )}
 
-      {/* TELA 2: ÁREA DO ADMINISTRADOR (PROTEGIDA) */}
+      {/* ÁREA DO ADMINISTRADOR */}
       {currentView === 'admin' && (
         <div className="card">
-          {!isAdminAuthenticated ? (
+          {!adminToken ? (
             <div>
               <h2>Acesso Restrito ao Administrador</h2>
-              <p>Digite a senha de acesso para visualizar o painel de controle.</p>
+              <p>Digite a senha de acesso para gerar o token de gerenciamento.</p>
               
               {message.text && (
                 <div className="alert alert-error">
@@ -235,26 +269,20 @@ export default function App() {
                     required 
                   />
                 </div>
-                <button type="submit" className="btn">Entrar no Painel</button>
+                <button type="submit" className="btn">Entrar com JWT</button>
               </form>
             </div>
           ) : (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h2>Painel de Gestão</h2>
-                <button 
-                  className="btn btn-secondary" 
-                  onClick={() => {
-                    setIsAdminAuthenticated(false);
-                    setAdminPassword('');
-                  }}
-                >
-                  Sair do Admin
+                <h2>Painel de Gestão (Autenticado via JWT)</h2>
+                <button className="btn btn-secondary" onClick={handleAdminLogout}>
+                  Sair / Limpar Token
                 </button>
               </div>
 
-              {/* SECCIÓN: REGISTRAR NUEVO SERVICIO */}
-              <div style={{ marginBottom: '40px', paddingBottom: '20px', borderBottom: '2px solid #e2e8f0' }}>
+              {/* Cadastrar Novo Serviço */}
+              <div style={{ marginBottom: '40px', paddingBottom: '20px', borderBottom: '2px solid var(--border-color)' }}>
                 <h3>Cadastrar Novo Serviço</h3>
                 {serviceMessage.text && (
                   <div className={`alert alert-${serviceMessage.type}`}>
@@ -278,7 +306,7 @@ export default function App() {
                 </form>
               </div>
 
-              {/* SECCIÓN: LISTA DE AGENDAMIENTOS */}
+              {/* Lista de Agendamentos */}
               <div>
                 <h3>Agendamentos Cadastrados</h3>
                 {appointments.length === 0 ? (
