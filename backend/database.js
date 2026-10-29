@@ -28,7 +28,15 @@ db.exec(`
     FOREIGN KEY (service_id) REFERENCES services(id)
   );
 `);
-
+// Tabela de usuários (clientes)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL
+  )
+`);
 // Inserir alguns serviços padrão
 const row = db.prepare('SELECT COUNT(*) as count FROM services').get();
 if (row.count === 0) {

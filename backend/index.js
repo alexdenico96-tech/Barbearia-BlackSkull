@@ -138,6 +138,59 @@ app.delete('/api/appointments/:id', verifyJWT, (req, res) => {
   }
 });
 
+// Cadastro de Cliente
+app.post('/api/auth/register', (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: "Todos os campos são obrigatórios." });
+    }
+
+    const insert = db.prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)');
+    const result = insert.run(name, email, password);
+
+    res.status(201).json({ id: result.lastInsertRowid, name, email });
+  } catch (error) {
+    res.status(400).json({ error: "Erro ao cadastrar. O e-mail já pode estar em uso." });
+  }
+});
+
+// Login de Cliente
+app.post('/api/auth/login', (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = db.prepare('SELECT * FROM users WHERE email = ? AND password = ?').get(email, password);
+
+    if (!user) {
+      return res.status(401).json({ error: "E-mail ou senha incorretos." });
+    }
+
+    // Gera um token JWT para o cliente
+    const token = jwt.sign({ id: user.id, name: user.name, role: 'client' }, SECRET_KEY, { expiresIn: '4h' });
+    res.json({ token, name: user.name });
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao realizar login." });
+  }
+});
+
+app.patch('/api/appointments/:id/status', verifyJWT, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body; // ex: 'pending', 'completed', 'cancelled'
+
+    const update = db.prepare('UPDATE appointments SET status = ? WHERE id = ?');
+    const result = update.run(status, id);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: "Agendamento não encontrado." });
+    }
+
+    res.json({ message: "Status atualizado com sucesso!", status });
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao atualizar status." });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
 });
