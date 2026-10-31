@@ -3,7 +3,7 @@ import "./App.css";
 import VisaoCliente from "./components/VisaoCliente";
 import VisaoAdmin from "./components/VisaoAdmin";
 
-const API = 'http://localhost:3001/api';
+const API = 'https://barbearia-blackskull.onrender.com/api';
 
 export default function App() {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
