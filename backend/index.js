@@ -16,22 +16,6 @@ app.get('/api/health', (req, res) => {
   res.json({ status: "OK", message: "O backend da barbearia está rodando!" });
 });
 
-/* ==========================================
-   ROTA DE AUTENTICAÇÃO ADMIN (JWT)
-   ========================================== */
-app.post('/api/admin/login', (req, res) => {
-  const { password } = req.body;
-  
-  // Senha simples para exemplo (em produção, usar hash no banco)
-  if (password === 'admin123') {
-    // Gera um token válido por 2 horas
-    const token = jwt.sign({ role: 'admin' }, SECRET_KEY, { expiresIn: '2h' });
-    return res.json({ token });
-  }
-  
-  return res.status(401).json({ error: "Senha de administrador incorreta." });
-});
-
 // Middleware para verificar o Token JWT
 const verifyJWT = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -49,6 +33,60 @@ const verifyJWT = (req, res, next) => {
     next();
   });
 };
+
+/* ==========================================
+   ROTAS DE AUTENTICAÇÃO E CONFIGURAÇÃO ADMIN
+   ========================================== */
+
+// Configurar o único Administrador do sistema (executado apenas na primeira vez)
+app.post('/api/admin/setup', (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    // Verificar se já existe um administrador registado
+    const administradorExistente = db.prepare('SELECT * FROM admin WHERE id = 1').get();
+    if (administradorExistente) {
+      return res.status(400).json({ error: "O administrador já se encontra configurado no sistema." });
+    }
+
+    const inserir = db.prepare('INSERT INTO admin (id, email, password) VALUES (1, ?, ?)');
+    inserir.run(email, password);
+
+    res.status(201).json({ message: "Administrador configurado com sucesso!" });
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao configurar o administrador." });
+  }
+});
+
+// Início de sessão do Administrador único com email e palavra-passe personalizados
+app.post('/api/admin/login', (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    // Busca o administrador único na base de dados
+    const admin = db.prepare('SELECT * FROM admin WHERE id = 1').get();
+
+    // Valida se existe e se coinciden tanto o e-mail como a palavra-passe
+    if (!admin || admin.email !== email || admin.password !== password) {
+      return res.status(401).json({ error: "E-mail ou palavra-passe de administrador incorretos." });
+    }
+
+    const token = jwt.sign({ role: 'admin' }, SECRET_KEY, { expiresIn: '4h' });
+    res.json({ token });
+  } catch (error) {
+    res.status(500).json({ error: "Erro no início de sessão do administrador." });
+  }
+});
+
+// Verificar se o administrador já foi configurado
+app.get('/api/admin/check', (req, res) => {
+  try {
+    const admin = db.prepare('SELECT id FROM admin WHERE id = 1').get();
+    res.json({ needsSetup: !admin });
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao verificar status do administrador." });
+  }
+});
 
 /* ==========================================
    ROTAS DE SERVIÇOS
@@ -138,7 +176,27 @@ app.delete('/api/appointments/:id', verifyJWT, (req, res) => {
   }
 });
 
-// Cadastro de Cliente
+app.patch('/api/appointments/:id/status', verifyJWT, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body; // ex: 'pending', 'completed', 'cancelled'
+
+    const update = db.prepare('UPDATE appointments SET status = ? WHERE id = ?');
+    const result = update.run(status, id);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: "Agendamento não encontrado." });
+    }
+
+    res.json({ message: "Status atualizado com sucesso!", status });
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao atualizar status." });
+  }
+});
+
+/* ==========================================
+   ROTAS DE AUTENTICAÇÃO DE CLIENTES
+   ========================================== */
 app.post('/api/auth/register', (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -155,7 +213,6 @@ app.post('/api/auth/register', (req, res) => {
   }
 });
 
-// Login de Cliente
 app.post('/api/auth/login', (req, res) => {
   try {
     const { email, password } = req.body;
@@ -165,29 +222,10 @@ app.post('/api/auth/login', (req, res) => {
       return res.status(401).json({ error: "E-mail ou senha incorretos." });
     }
 
-    // Gera um token JWT para o cliente
     const token = jwt.sign({ id: user.id, name: user.name, role: 'client' }, SECRET_KEY, { expiresIn: '4h' });
     res.json({ token, name: user.name });
   } catch (error) {
     res.status(500).json({ error: "Erro ao realizar login." });
-  }
-});
-
-app.patch('/api/appointments/:id/status', verifyJWT, (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body; // ex: 'pending', 'completed', 'cancelled'
-
-    const update = db.prepare('UPDATE appointments SET status = ? WHERE id = ?');
-    const result = update.run(status, id);
-
-    if (result.changes === 0) {
-      return res.status(404).json({ error: "Agendamento não encontrado." });
-    }
-
-    res.json({ message: "Status atualizado com sucesso!", status });
-  } catch (error) {
-    res.status(500).json({ error: "Erro ao atualizar status." });
   }
 });
 

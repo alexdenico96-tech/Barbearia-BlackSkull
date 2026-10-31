@@ -37,6 +37,14 @@ db.exec(`
     password TEXT NOT NULL
   )
 `);
+// Tabela para garantir um único Administrador no sistema
+db.exec(`
+  CREATE TABLE IF NOT EXISTS admin (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    email TEXT NOT NULL,
+    password TEXT NOT NULL
+  )
+`);
 // Inserir alguns serviços padrão
 const row = db.prepare('SELECT COUNT(*) as count FROM services').get();
 if (row.count === 0) {
