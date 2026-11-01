@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ModalConfirmacao from './ModalConfirmacao';
 
-const API = 'http://localhost:3001/api';
+const API = 'https://barbearia-blackskull.onrender.com/api';
 
 export default function VisaoAdmin({
   adminToken,

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 const CONFIG = {
-  formEndpoint: "", // Insira seu ID do Formspree se desejar, ou deixe vazio para usar mailto
+  formEndpoint: "https://formspree.io/f/maeqwdrw", // Insira seu ID do Formspree se desejar, ou deixe vazio para usar mailto
   emailBarbeiro: "barbeiro@blackskull.com"
 };
 

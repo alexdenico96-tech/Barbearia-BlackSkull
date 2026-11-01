@@ -8,7 +8,14 @@ const PORT = 3001;
 const SECRET_KEY = 'sua_chave_secreta_super_segura_jwt'; // Em produção, use variáveis de ambiente (.env)
 
 // Middlewares
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://barbearia-black-skull.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 // Rota de teste
