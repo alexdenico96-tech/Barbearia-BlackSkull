@@ -1,0 +1,15 @@
+# pack-refs with: peeled fully-peeled sorted 
+eb9257418974b89035ea8cc32401b5be1c4281ec refs/heads/feat/telas-usuario-e-admin
+7a1d2ab726b6f6193b5f095477874233a3c0d8b2 refs/heads/feature/Readme
+6b768f309e91539a1fdc254600ca5de2cd929cc2 refs/heads/feature/backend-core
+9c704ee16124030f97b5e8ba4e2623bfce89bbc6 refs/heads/feature/frontend-public
+923e622de49c2b2510b284a15e7bfdf89a09fe0a refs/heads/feature/modal-confirmacao
+eb9257418974b89035ea8cc32401b5be1c4281ec refs/heads/feature/notificacao-email
+2db5f030164be9cbf86cedb31e5883a5ddfe2ff6 refs/heads/fix/script-start-backend
+cd2879cd1df8d750ebb5312d9c3df912fa8f612e refs/heads/main
+6f6b71f77e4a367d070adca2658e844a79016ed7 refs/pull/1/head
+5f7fbdabeea183575bf6173297155c2669577828 refs/pull/2/head
+9c704ee16124030f97b5e8ba4e2623bfce89bbc6 refs/pull/3/head
+6b768f309e91539a1fdc254600ca5de2cd929cc2 refs/pull/4/head
+7a1d2ab726b6f6193b5f095477874233a3c0d8b2 refs/pull/5/head
+2db5f030164be9cbf86cedb31e5883a5ddfe2ff6 refs/pull/6/head

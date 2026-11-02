@@ -1,0 +1,81 @@
+### Requer a extensão "REST Client" do VS Code. Servidor local: npm start (porta 3001)
+
+### Saúde do servidor
+GET http://localhost:3001/api/health
+
+### Regras de funcionamento (horário, dias, "hoje" no fuso de São Paulo)
+GET http://localhost:3001/api/config
+
+### Serviços (público)
+GET http://localhost:3001/api/services
+
+### Horários livres de um dia para o serviço 1 (ajuste a data)
+GET http://localhost:3001/api/availability?date=2026-12-15&service_id=1
+
+### Cadastrar cliente (consent é obrigatório)
+POST http://localhost:3001/api/auth/register
+Content-Type: application/json
+
+{ "name": "Cliente Teste", "email": "cliente@teste.com", "password": "senha123", "consent": true }
+
+### Login do cliente
+# @name loginCliente
+POST http://localhost:3001/api/auth/login
+Content-Type: application/json
+
+{ "email": "cliente@teste.com", "password": "senha123" }
+
+###
+@clientToken = {{loginCliente.response.body.token}}
+
+### Agendar COM token de cliente (201). Ajuste a data para um dia útil futuro.
+POST http://localhost:3001/api/appointments
+Content-Type: application/json
+Authorization: Bearer {{clientToken}}
+
+{ "client_name": "Cliente Teste", "client_phone": "11999999999", "service_id": 1, "date": "2026-12-15", "time": "14:00" }
+
+### Agendar SEM token (401)
+POST http://localhost:3001/api/appointments
+Content-Type: application/json
+
+{ "client_name": "Intruso", "client_phone": "11888888888", "service_id": 1, "date": "2026-12-15", "time": "15:00" }
+
+### Mesmo horário de novo (409)
+POST http://localhost:3001/api/appointments
+Content-Type: application/json
+Authorization: Bearer {{clientToken}}
+
+{ "client_name": "Outro", "client_phone": "11888888888", "service_id": 1, "date": "2026-12-15", "time": "14:00" }
+
+### Horário fora do expediente (400)
+POST http://localhost:3001/api/appointments
+Content-Type: application/json
+Authorization: Bearer {{clientToken}}
+
+{ "client_name": "Cliente Teste", "client_phone": "11999999999", "service_id": 1, "date": "2026-12-15", "time": "03:00" }
+
+### Meus agendamentos
+GET http://localhost:3001/api/my-appointments
+Authorization: Bearer {{clientToken}}
+
+### Listar TODOS os agendamentos com token de cliente (403)
+GET http://localhost:3001/api/appointments
+Authorization: Bearer {{clientToken}}
+
+### Listar agendamentos sem token (401)
+GET http://localhost:3001/api/appointments
+
+### Login do admin (use o e-mail e a senha reais)
+# @name loginAdmin
+POST http://localhost:3001/api/admin/login
+Content-Type: application/json
+
+{ "email": "SEU_EMAIL_ADMIN", "password": "SUA_SENHA_ADMIN" }
+
+###
+@adminToken = {{loginAdmin.response.body.token}}
+
+### Listar agendamentos como admin (200)
+GET http://localhost:3001/api/appointments
+Authorization: Bearer {{adminToken}}
